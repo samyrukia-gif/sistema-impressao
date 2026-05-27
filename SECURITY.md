@@ -4,6 +4,7 @@
 
 - Rotacione a chave do Asaas que chegou a aparecer no codigo local.
 - Mantenha `ASAAS_API_KEY` apenas em `.env.local` e nas variaveis de ambiente da Vercel.
+- Mantenha `ASAAS_WEBHOOK_TOKEN` apenas em `.env.local` e nas variaveis de ambiente da Vercel.
 - Mantenha `SUPABASE_SERVICE_ROLE_KEY` apenas em `.env.local` e nas variaveis de ambiente da Vercel.
 - Nunca use prefixo `NEXT_PUBLIC_` em chaves secretas. Variaveis com esse prefixo ficam visiveis no navegador.
 - Configure `APP_ORIGIN` com a origem publica do deploy, por exemplo `https://sistema-impressao.vercel.app`.
@@ -13,6 +14,7 @@
 - Use `ASAAS_API_BASE_URL=https://sandbox.asaas.com/api/v3` para testes.
 - Use `ASAAS_API_BASE_URL=https://api.asaas.com/api/v3` somente em producao.
 - Confira no painel do Asaas se o webhook de pagamento confirmado valida a origem do evento antes de liberar qualquer impressao.
+- Configure o webhook do Asaas com `Authentication Token` e valide sempre o header `asaas-access-token`.
 
 ## Supabase
 
