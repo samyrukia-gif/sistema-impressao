@@ -13,6 +13,7 @@ type PrintType = keyof typeof PRICE_BY_PRINT_TYPE
 
 type PaymentRequestBody = {
   nome?: unknown
+  cpfCnpj?: unknown
   email?: unknown
   whatsapp?: unknown
   tipoImpressao?: unknown
@@ -71,6 +72,17 @@ function readEmail(value: unknown) {
   }
 
   return email
+}
+
+function readCpfCnpj(value: unknown) {
+  const raw = readTextField(value, 'um CPF ou CNPJ', 18)
+  const digitsOnly = raw.replace(/\D/g, '')
+
+  if (!/^\d{11}$|^\d{14}$/.test(digitsOnly)) {
+    throw new PublicApiError(400, 'Informe um CPF ou CNPJ valido.')
+  }
+
+  return digitsOnly
 }
 
 function readWhatsapp(value: unknown) {
@@ -217,6 +229,7 @@ async function createAsaasCustomer(
   baseUrl: string,
   apiKey: string,
   nome: string,
+  cpfCnpj: string,
   email: string,
   whatsapp: string
 ) {
@@ -226,6 +239,7 @@ async function createAsaasCustomer(
     '/customers',
     {
       name: nome,
+      cpfCnpj,
       email,
       mobilePhone: whatsapp,
     }
@@ -265,6 +279,7 @@ export async function POST(req: Request) {
     }
 
     const nome = readTextField(body.nome, 'o nome completo', 120)
+    const cpfCnpj = readCpfCnpj(body.cpfCnpj)
     const email = readEmail(body.email)
     const whatsapp = readWhatsapp(body.whatsapp)
     const tipoImpressao = readPrintType(body.tipoImpressao)
@@ -282,6 +297,7 @@ export async function POST(req: Request) {
       baseUrl,
       apiKey,
       nome,
+      cpfCnpj,
       email,
       whatsapp
     )

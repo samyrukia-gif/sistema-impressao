@@ -13,6 +13,7 @@ export default function HomePage() {
   const [enviando, setEnviando] = useState(false)
 
   const [nomeCliente, setNomeCliente] = useState('')
+  const [documentoCliente, setDocumentoCliente] = useState('')
   const [whatsappCliente, setWhatsappCliente] = useState('')
   const [emailCliente, setEmailCliente] = useState('')
 
@@ -81,10 +82,17 @@ export default function HomePage() {
     if (enviando) return
 
     const nomeClienteLimpo = nomeCliente.trim()
+    const documentoClienteLimpo = documentoCliente.trim()
     const whatsappClienteLimpo = whatsappCliente.trim()
     const emailClienteLimpo = emailCliente.trim()
 
-    if (!file || !nomeClienteLimpo || !whatsappClienteLimpo || !emailClienteLimpo) {
+    if (
+      !file ||
+      !nomeClienteLimpo ||
+      !documentoClienteLimpo ||
+      !whatsappClienteLimpo ||
+      !emailClienteLimpo
+    ) {
       setMensagem('Preencha todos os campos e selecione um PDF.')
       return
     }
@@ -115,6 +123,7 @@ export default function HomePage() {
     try {
       const formData = new FormData()
       formData.append('nome', nomeClienteLimpo)
+      formData.append('cpfCnpj', documentoClienteLimpo)
       formData.append('email', emailClienteLimpo)
       formData.append('whatsapp', whatsappClienteLimpo)
       formData.append('tipoImpressao', tipoImpressao)
@@ -197,6 +206,18 @@ export default function HomePage() {
                 placeholder="Digite seu nome completo"
                 autoComplete="name"
                 maxLength={120}
+                required
+              />
+            </label>
+
+            <label className="field">
+              <span>CPF ou CNPJ</span>
+              <input
+                value={documentoCliente}
+                onChange={(e) => setDocumentoCliente(e.target.value)}
+                placeholder="Somente numeros"
+                autoComplete="off"
+                maxLength={18}
                 required
               />
             </label>

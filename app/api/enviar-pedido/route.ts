@@ -62,6 +62,17 @@ function readEmail(value: FormDataEntryValue | null) {
   return email
 }
 
+function readCpfCnpj(value: FormDataEntryValue | null) {
+  const raw = readTextField(value, 'um CPF ou CNPJ', 18)
+  const digitsOnly = raw.replace(/\D/g, '')
+
+  if (!/^\d{11}$|^\d{14}$/.test(digitsOnly)) {
+    throw new PublicApiError(400, 'Informe um CPF ou CNPJ valido.')
+  }
+
+  return digitsOnly
+}
+
 function readWhatsapp(value: FormDataEntryValue | null) {
   const raw = readTextField(value, 'um WhatsApp', 30)
   const digitsOnly = raw.replace(/\D/g, '')
@@ -242,6 +253,7 @@ async function createAsaasCustomer(
   baseUrl: string,
   apiKey: string,
   nome: string,
+  cpfCnpj: string,
   email: string,
   whatsapp: string
 ) {
@@ -251,6 +263,7 @@ async function createAsaasCustomer(
     '/customers',
     {
       name: nome,
+      cpfCnpj,
       email,
       mobilePhone: whatsapp,
     }
@@ -285,6 +298,7 @@ export async function POST(req: Request) {
 
     const formData = await req.formData()
     const nome = readTextField(formData.get('nome'), 'o nome completo', 120)
+    const cpfCnpj = readCpfCnpj(formData.get('cpfCnpj'))
     const email = readEmail(formData.get('email'))
     const whatsapp = readWhatsapp(formData.get('whatsapp'))
     const tipoImpressao = readPrintType(formData.get('tipoImpressao'))
@@ -327,6 +341,7 @@ export async function POST(req: Request) {
       baseUrl,
       apiKey,
       nome,
+      cpfCnpj,
       email,
       whatsapp
     )
