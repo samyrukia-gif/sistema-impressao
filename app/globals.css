@@ -3,6 +3,7 @@
   --surface: #fffdfa;
   --surface-subtle: #f8f6f0;
   --ink: #20211f;
+  --navy: #0b2f57;
   --muted: #6c6a62;
   --line: #ded8cc;
   --accent: #0f6b5f;
@@ -79,6 +80,7 @@ button {
 }
 
 .brand strong {
+  color: var(--navy);
   font-size: 15px;
   letter-spacing: 0;
 }
@@ -130,6 +132,7 @@ button {
 }
 
 h1 {
+  color: var(--navy);
   font-size: clamp(34px, 5vw, 64px);
   font-weight: 750;
   letter-spacing: 0;
@@ -201,6 +204,7 @@ h1 {
 }
 
 .section-heading p {
+  color: var(--navy);
   font-size: 18px;
   font-weight: 750;
   margin: 0;
@@ -229,7 +233,7 @@ h1 {
 
 .field span,
 .print-choice legend {
-  color: var(--ink);
+  color: var(--navy);
   font-size: 13px;
   font-weight: 750;
 }
@@ -380,7 +384,7 @@ h1 {
 }
 
 .summary-item strong {
-  color: var(--ink);
+  color: var(--navy);
   font-size: 14px;
   text-align: right;
 }
