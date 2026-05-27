@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 
-const ASAAS_API_VERSION_PATH = '/api/v3'
+const ASAAS_API_VERSION_PATH = '/v3'
 const MAX_REQUEST_BYTES = 10_000
 const MAX_PAGES = 500
 
@@ -129,7 +129,7 @@ function getAsaasBaseUrl(apiKey: string) {
 
   if (configuredUrl) {
     const url = new URL(configuredUrl)
-    const allowedHostnames = new Set(['api.asaas.com', 'sandbox.asaas.com'])
+    const allowedHostnames = new Set(['api.asaas.com', 'api-sandbox.asaas.com'])
 
     if (
       url.protocol !== 'https:' ||
@@ -144,7 +144,7 @@ function getAsaasBaseUrl(apiKey: string) {
 
   return apiKey.includes('_prod_')
     ? `https://api.asaas.com${ASAAS_API_VERSION_PATH}`
-    : `https://sandbox.asaas.com${ASAAS_API_VERSION_PATH}`
+    : `https://api-sandbox.asaas.com${ASAAS_API_VERSION_PATH}`
 }
 
 function validateRequestOrigin(req: Request) {

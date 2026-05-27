@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 
-const ASAAS_API_VERSION_PATH = '/api/v3'
+const ASAAS_API_VERSION_PATH = '/v3'
 const MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024
 const MAX_REQUEST_BYTES = MAX_FILE_SIZE_BYTES + 50_000
 const MAX_PAGES = 500
@@ -180,7 +180,7 @@ function getAsaasBaseUrl(apiKey: string) {
 
   if (configuredUrl) {
     const url = new URL(configuredUrl)
-    const allowedHostnames = new Set(['api.asaas.com', 'sandbox.asaas.com'])
+    const allowedHostnames = new Set(['api.asaas.com', 'api-sandbox.asaas.com'])
 
     if (
       url.protocol !== 'https:' ||
@@ -195,7 +195,7 @@ function getAsaasBaseUrl(apiKey: string) {
 
   return apiKey.includes('_prod_')
     ? `https://api.asaas.com${ASAAS_API_VERSION_PATH}`
-    : `https://sandbox.asaas.com${ASAAS_API_VERSION_PATH}`
+    : `https://api-sandbox.asaas.com${ASAAS_API_VERSION_PATH}`
 }
 
 async function postToAsaas<T>(
@@ -362,7 +362,10 @@ export async function POST(req: Request) {
       .from('pedidos_impressao')
       .insert([
         {
+          asaas_payment_id: paymentData.id,
+          external_reference: externalReference,
           nome_arquivo: file.name,
+          storage_path: fileName,
           url_arquivo: publicUrlData.publicUrl,
           status: 'aguardando_pagamento',
           nome_cliente: nome,
