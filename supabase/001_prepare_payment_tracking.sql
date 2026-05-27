@@ -2,6 +2,7 @@ alter table public.pedidos_impressao
   add column if not exists asaas_payment_id text,
   add column if not exists external_reference text,
   add column if not exists storage_path text,
+  add column if not exists local_file_path text,
   add column if not exists paid_at timestamptz,
   add column if not exists print_started_at timestamptz,
   add column if not exists printed_at timestamptz,
