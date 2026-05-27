@@ -32,6 +32,7 @@ yarn-error.log*
 
 # print agent local files
 /print-agent-downloads/
+/tools/SumatraPDF/
 
 # env files (can opt-in for committing if needed)
 .env*

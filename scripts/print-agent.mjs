@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
-import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { access, mkdir, readFile, writeFile } from 'node:fs/promises'
 import { spawn } from 'node:child_process'
 import path from 'node:path'
 
@@ -35,6 +35,11 @@ const pollMs = Number.parseInt(process.env.PRINT_AGENT_POLL_MS || '15000', 10)
 const simulatePrint = (process.env.PRINT_AGENT_SIMULATE ?? 'true') !== 'false'
 const printerName = process.env.PRINT_AGENT_PRINTER_NAME?.trim()
 const runOnce = process.argv.includes('--once') || process.env.PRINT_AGENT_ONCE === 'true'
+const printTimeoutMs = Number.parseInt(
+  process.env.PRINT_AGENT_PRINT_TIMEOUT_MS || '90000',
+  10
+)
+const configuredPdfPrinterPath = process.env.SUMATRA_PDF_PATH?.trim()
 const downloadDir = path.resolve(
   process.env.PRINT_AGENT_DOWNLOAD_DIR || 'print-agent-downloads'
 )
@@ -135,26 +140,78 @@ async function downloadOrderPdf(order) {
   return localPath
 }
 
-async function runPowerShell(command) {
+async function fileExists(filePath) {
+  try {
+    await access(filePath)
+    return true
+  } catch {
+    return false
+  }
+}
+
+async function findSumatraPdf() {
+  const candidates = [
+    configuredPdfPrinterPath,
+    path.resolve('tools', 'SumatraPDF', 'SumatraPDF.exe'),
+    'C:\\Program Files\\SumatraPDF\\SumatraPDF.exe',
+    'C:\\Program Files (x86)\\SumatraPDF\\SumatraPDF.exe',
+    process.env.LOCALAPPDATA
+      ? path.join(process.env.LOCALAPPDATA, 'SumatraPDF', 'SumatraPDF.exe')
+      : null,
+  ].filter(Boolean)
+
+  for (const candidate of candidates) {
+    if (await fileExists(candidate)) {
+      return candidate
+    }
+  }
+
+  return null
+}
+
+async function runPrintCommand(exePath, args) {
   return new Promise((resolve, reject) => {
-    const child = spawn(
-      'powershell.exe',
-      ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', command],
-      { windowsHide: true }
-    )
+    const child = spawn(exePath, args, { windowsHide: true })
     let stderr = ''
+    let stdout = ''
+
+    const timer = setTimeout(() => {
+      child.kill()
+      reject(
+        new Error(
+          `Tempo limite de impressao atingido (${printTimeoutMs}ms). Verifique se a impressora esta ligada e sem janelas abertas.`
+        )
+      )
+    }, printTimeoutMs)
+
+    child.stdout.on('data', (chunk) => {
+      stdout += chunk.toString()
+    })
 
     child.stderr.on('data', (chunk) => {
       stderr += chunk.toString()
     })
 
+    child.on('error', (error) => {
+      clearTimeout(timer)
+      reject(error)
+    })
+
     child.on('exit', (code) => {
+      clearTimeout(timer)
+
       if (code === 0) {
         resolve()
         return
       }
 
-      reject(new Error(stderr.trim() || `PowerShell saiu com codigo ${code}`))
+      reject(
+        new Error(
+          stderr.trim() ||
+            stdout.trim() ||
+            `Comando de impressao saiu com codigo ${code}`
+        )
+      )
     })
   })
 }
@@ -169,12 +226,21 @@ async function printPdf(localPath) {
     throw new Error('Configure PRINT_AGENT_PRINTER_NAME para imprimir de verdade.')
   }
 
-  const escapedPath = localPath.replace(/'/g, "''")
-  const escapedPrinter = printerName.replace(/'/g, "''")
+  const sumatraPath = await findSumatraPdf()
 
-  await runPowerShell(
-    `Start-Process -FilePath '${escapedPath}' -Verb PrintTo -ArgumentList '${escapedPrinter}' -WindowStyle Hidden -Wait`
-  )
+  if (!sumatraPath) {
+    throw new Error(
+      'SumatraPDF nao encontrado. Baixe a versao portatil em tools\\SumatraPDF ou configure SUMATRA_PDF_PATH.'
+    )
+  }
+
+  await runPrintCommand(sumatraPath, [
+    '-print-to',
+    printerName,
+    '-silent',
+    '-exit-when-done',
+    localPath,
+  ])
 }
 
 async function finishOrder(orderId, localPath) {
@@ -241,6 +307,7 @@ async function main() {
     simulatePrint,
     runOnce,
     pollMs,
+    printTimeoutMs,
     printerName: printerName || null,
     downloadDir,
   })

@@ -11,6 +11,7 @@ export default function HomePage() {
   const [file, setFile] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [mensagem, setMensagem] = useState('')
+  const [pagamentoUrl, setPagamentoUrl] = useState('')
   const [enviando, setEnviando] = useState(false)
 
   const [nomeCliente, setNomeCliente] = useState('')
@@ -41,6 +42,7 @@ export default function HomePage() {
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const selectedFile = e.target.files?.[0]
     setMensagem('')
+    setPagamentoUrl('')
 
     if (!selectedFile) {
       setFile(null)
@@ -55,6 +57,7 @@ export default function HomePage() {
       setFile(null)
       e.target.value = ''
       setMensagem('Selecione um arquivo PDF valido.')
+      setPagamentoUrl('')
       return
     }
 
@@ -62,6 +65,7 @@ export default function HomePage() {
       setFile(null)
       e.target.value = ''
       setMensagem('O PDF deve ter no maximo 20 MB.')
+      setPagamentoUrl('')
       return
     }
 
@@ -97,6 +101,7 @@ export default function HomePage() {
       !emailClienteLimpo
     ) {
       setMensagem('Preencha todos os campos e selecione um PDF.')
+      setPagamentoUrl('')
       return
     }
 
@@ -108,6 +113,7 @@ export default function HomePage() {
       )
     ) {
       setMensagem('Selecione um PDF valido de ate 20 MB.')
+      setPagamentoUrl('')
       return
     }
 
@@ -117,11 +123,13 @@ export default function HomePage() {
       quantidadePaginas > MAX_PAGES
     ) {
       setMensagem(`Informe entre 1 e ${MAX_PAGES} paginas.`)
+      setPagamentoUrl('')
       return
     }
 
     setEnviando(true)
     setMensagem('')
+    setPagamentoUrl('')
 
     try {
       const formData = new FormData()
@@ -142,17 +150,23 @@ export default function HomePage() {
 
       if (!resposta.ok) {
         setMensagem(pedidoData.error || 'Erro ao enviar pedido.')
+        setPagamentoUrl('')
         return
       }
 
       if (!pedidoData.invoiceUrl || typeof pedidoData.value !== 'number') {
         setMensagem('Resposta de pagamento invalida. Tente novamente.')
+        setPagamentoUrl('')
         return
       }
 
-      setMensagem(`Pagamento gerado com sucesso: ${pedidoData.invoiceUrl}`)
+      setMensagem(
+        'Pagamento gerado com sucesso. Apos a confirmacao, seu arquivo entra automaticamente na fila de impressao.'
+      )
+      setPagamentoUrl(pedidoData.invoiceUrl)
     } catch {
       setMensagem('Nao foi possivel concluir o pedido. Tente novamente.')
+      setPagamentoUrl('')
     } finally {
       setEnviando(false)
     }
@@ -308,10 +322,29 @@ export default function HomePage() {
             {enviando ? 'Enviando pedido...' : 'Gerar pagamento'}
           </button>
 
-          {mensagem && (
-            <div className="status-message" role="status">
+          {(mensagem || pagamentoUrl) && (
+            <div
+              className={`status-message${pagamentoUrl ? ' status-message-success' : ''}`}
+              role="status"
+            >
               <strong>Status do pedido</strong>
               <span>{mensagem}</span>
+              {pagamentoUrl && (
+                <>
+                  <a
+                    className="payment-link"
+                    href={pagamentoUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Abrir pagamento
+                  </a>
+                  <small>
+                    Voce nao precisa enviar o pedido novamente. Assim que o pagamento
+                    for aprovado, a impressao sera iniciada automaticamente.
+                  </small>
+                </>
+              )}
             </div>
           )}
         </form>

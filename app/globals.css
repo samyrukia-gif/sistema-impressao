@@ -357,12 +357,43 @@ h1 {
   word-break: break-word;
 }
 
+.status-message-success {
+  background: #e9f4ee;
+  border-color: #bfdccb;
+  color: var(--accent-strong);
+}
+
 .status-message strong {
   font-size: 13px;
 }
 
 .status-message span {
   font-size: 14px;
+}
+
+.status-message small {
+  color: #42675d;
+  font-size: 13px;
+}
+
+.payment-link {
+  align-items: center;
+  background: var(--accent-strong);
+  border-radius: 8px;
+  color: #fff;
+  display: inline-flex;
+  font-size: 14px;
+  font-weight: 800;
+  justify-content: center;
+  margin-top: 4px;
+  min-height: 42px;
+  padding: 10px 14px;
+  text-decoration: none;
+  width: fit-content;
+}
+
+.payment-link:hover {
+  background: var(--navy);
 }
 
 .summary-list {
