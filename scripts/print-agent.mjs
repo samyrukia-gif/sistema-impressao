@@ -34,6 +34,7 @@ const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim()
 const pollMs = Number.parseInt(process.env.PRINT_AGENT_POLL_MS || '15000', 10)
 const simulatePrint = (process.env.PRINT_AGENT_SIMULATE ?? 'true') !== 'false'
 const printerName = process.env.PRINT_AGENT_PRINTER_NAME?.trim()
+const runOnce = process.argv.includes('--once') || process.env.PRINT_AGENT_ONCE === 'true'
 const downloadDir = path.resolve(
   process.env.PRINT_AGENT_DOWNLOAD_DIR || 'print-agent-downloads'
 )
@@ -54,7 +55,7 @@ const supabase = createClient(supabaseUrl, supabaseKey, {
 
 function log(message, meta = {}) {
   const suffix = Object.keys(meta).length ? ` ${JSON.stringify(meta)}` : ''
-  console.log(`[print-agent] ${new Date().toISOString()} ${message}${suffix}`)
+  process.stdout.write(`[print-agent] ${new Date().toISOString()} ${message}${suffix}\n`)
 }
 
 function cleanFileName(name) {
@@ -238,6 +239,7 @@ async function processOnce() {
 async function main() {
   log('Agente iniciado.', {
     simulatePrint,
+    runOnce,
     pollMs,
     printerName: printerName || null,
     downloadDir,
@@ -250,6 +252,11 @@ async function main() {
       log('Erro no ciclo do agente.', {
         message: error instanceof Error ? error.message : String(error),
       })
+    }
+
+    if (runOnce) {
+      log('Execucao unica concluida.')
+      break
     }
 
     await new Promise((resolve) => setTimeout(resolve, pollMs))
