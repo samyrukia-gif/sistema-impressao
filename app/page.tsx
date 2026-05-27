@@ -5,6 +5,7 @@ import Image from 'next/image'
 
 const MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024
 const MAX_PAGES = 500
+const MIN_PAYMENT_VALUE = 10
 
 export default function HomePage() {
   const [file, setFile] = useState<File | null>(null)
@@ -21,7 +22,9 @@ export default function HomePage() {
   const [quantidadePaginas, setQuantidadePaginas] = useState(1)
 
   const preco = tipoImpressao === 'pb' ? 2.5 : 3.5
-  const valorTotal = preco * quantidadePaginas
+  const subtotal = preco * quantidadePaginas
+  const valorTotal = Math.max(subtotal, MIN_PAYMENT_VALUE)
+  const hasMinimumCharge = valorTotal > subtotal
 
   useEffect(() => {
     if (!file) {
@@ -330,6 +333,16 @@ export default function HomePage() {
                 label="Preco por pagina"
                 value={`R$ ${preco.toFixed(2).replace('.', ',')}`}
               />
+              <ResumoItem
+                label="Subtotal"
+                value={`R$ ${subtotal.toFixed(2).replace('.', ',')}`}
+              />
+              {hasMinimumCharge && (
+                <ResumoItem
+                  label="Minimo Pix"
+                  value={`R$ ${MIN_PAYMENT_VALUE.toFixed(2).replace('.', ',')}`}
+                />
+              )}
             </div>
 
             <div className="total-row">

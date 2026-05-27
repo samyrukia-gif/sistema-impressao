@@ -5,6 +5,7 @@ const ASAAS_API_VERSION_PATH = '/v3'
 const MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024
 const MAX_REQUEST_BYTES = MAX_FILE_SIZE_BYTES + 50_000
 const MAX_PAGES = 500
+const MIN_PAYMENT_VALUE = 10
 
 const PRICE_BY_PRINT_TYPE = {
   pb: 2.5,
@@ -23,6 +24,13 @@ type AsaasPaymentResponse = {
   bankSlipUrl?: string
   value?: number
   dueDate?: string
+}
+
+type AsaasErrorResponse = {
+  errors?: Array<{
+    code?: string
+    description?: string
+  }>
 }
 
 class PublicApiError extends Error {
@@ -240,9 +248,12 @@ async function postToAsaas<T>(
       response: data,
     })
 
+    const asaasError = data as AsaasErrorResponse
+    const description = asaasError.errors?.[0]?.description
+
     throw new PublicApiError(
       502,
-      'Nao foi possivel processar o pagamento agora.'
+      description || 'Nao foi possivel processar o pagamento agora.'
     )
   }
 
@@ -304,9 +315,8 @@ export async function POST(req: Request) {
     const tipoImpressao = readPrintType(formData.get('tipoImpressao'))
     const quantidadePaginas = readPageCount(formData.get('quantidadePaginas'))
     const file = readPdfFile(formData.get('arquivo'))
-    const valor = Number(
-      (PRICE_BY_PRINT_TYPE[tipoImpressao] * quantidadePaginas).toFixed(2)
-    )
+    const subtotal = PRICE_BY_PRINT_TYPE[tipoImpressao] * quantidadePaginas
+    const valor = Number(Math.max(subtotal, MIN_PAYMENT_VALUE).toFixed(2))
     const dueDate = new Date().toISOString().split('T')[0]
     const externalReference = globalThis.crypto.randomUUID()
 
