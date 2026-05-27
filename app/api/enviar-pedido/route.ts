@@ -168,12 +168,13 @@ function validateRequestOrigin(req: Request) {
 
 function getSupabaseClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim()
-  const supabaseKey =
-    process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() ||
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim()
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim()
 
   if (!supabaseUrl || !supabaseKey) {
-    throw new PublicApiError(500, 'Supabase nao configurado.')
+    throw new PublicApiError(
+      500,
+      'Supabase service role nao configurada na Vercel.'
+    )
   }
 
   return createClient(supabaseUrl, supabaseKey, {
@@ -410,7 +411,7 @@ export async function POST(req: Request) {
 
       throw new PublicApiError(
         502,
-        'Pagamento criado, mas nao foi possivel registrar o pedido.'
+        `Pagamento criado, mas nao foi possivel registrar o pedido: ${insertError.message}`
       )
     }
 
