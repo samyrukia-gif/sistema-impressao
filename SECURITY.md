@@ -4,6 +4,7 @@
 
 - Rotacione a chave do Asaas que chegou a aparecer no codigo local.
 - Mantenha `ASAAS_API_KEY` apenas em `.env.local` e nas variaveis de ambiente da Vercel.
+- Mantenha `SUPABASE_SERVICE_ROLE_KEY` apenas em `.env.local` e nas variaveis de ambiente da Vercel.
 - Nunca use prefixo `NEXT_PUBLIC_` em chaves secretas. Variaveis com esse prefixo ficam visiveis no navegador.
 - Configure `APP_ORIGIN` com a origem publica do deploy, por exemplo `https://sistema-impressao.vercel.app`.
 
@@ -16,6 +17,7 @@
 ## Supabase
 
 - Ative RLS na tabela `pedidos_impressao`.
+- Prefira que uploads e inserts passem pela rota server-side `/api/enviar-pedido`, usando `SUPABASE_SERVICE_ROLE_KEY`.
 - Permita inserts anonimos somente para as colunas necessarias do pedido.
 - Nao permita que usuarios anonimos atualizem `status`, `valor`, `payment_link` ou campos administrativos.
 - Restrinja o bucket `arquivos` a PDFs e limite o tamanho maximo do upload.

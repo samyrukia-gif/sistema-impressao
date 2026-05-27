@@ -2,7 +2,6 @@
 
 import { FormEvent, useEffect, useState } from 'react'
 import Image from 'next/image'
-import { isSupabaseConfigured, supabase } from './lib/supabase'
 
 const MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024
 const MAX_PAGES = 500
@@ -76,29 +75,6 @@ export default function HomePage() {
     setQuantidadePaginas(Math.min(Math.max(pageCount, 1), MAX_PAGES))
   }
 
-  function limparNomeArquivo(nome: string) {
-    return nome
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[^a-zA-Z0-9.]/g, '_')
-  }
-
-  function getStorageErrorMessage(message: string) {
-    if (/failed to fetch|network|fetch/i.test(message)) {
-      return 'Nao foi possivel enviar o PDF. Verifique as variaveis do Supabase na Vercel e as regras/CORS do bucket arquivos.'
-    }
-
-    if (/bucket|not found/i.test(message)) {
-      return 'Bucket de arquivos nao encontrado no Supabase.'
-    }
-
-    if (/row-level security|permission|unauthorized|forbidden/i.test(message)) {
-      return 'O Supabase bloqueou o envio. Revise as politicas de upload do bucket arquivos.'
-    }
-
-    return message || 'Nao foi possivel enviar o PDF.'
-  }
-
   async function enviarArquivo(event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault()
 
@@ -136,76 +112,33 @@ export default function HomePage() {
     setEnviando(true)
     setMensagem('')
 
-    const nomeLimpo = limparNomeArquivo(file.name)
-    const fileName = `${Date.now()}-${nomeLimpo}`
-
     try {
-      if (!isSupabaseConfigured || !supabase) {
-        setMensagem(
-          'Supabase nao configurado. Configure NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_ANON_KEY na Vercel.'
-        )
-        return
-      }
+      const formData = new FormData()
+      formData.append('nome', nomeClienteLimpo)
+      formData.append('email', emailClienteLimpo)
+      formData.append('whatsapp', whatsappClienteLimpo)
+      formData.append('tipoImpressao', tipoImpressao)
+      formData.append('quantidadePaginas', String(quantidadePaginas))
+      formData.append('arquivo', file)
 
-      const { error: uploadError } = await supabase.storage
-        .from('arquivos')
-        .upload(fileName, file, {
-          contentType: 'application/pdf',
-          upsert: false,
-        })
-
-      if (uploadError) {
-        setMensagem(getStorageErrorMessage(uploadError.message))
-        return
-      }
-
-      const { data } = supabase.storage.from('arquivos').getPublicUrl(fileName)
-
-      const pagamento = await fetch('/api/criar-pagamento', {
+      const resposta = await fetch('/api/enviar-pedido', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          nome: nomeClienteLimpo,
-          email: emailClienteLimpo,
-          whatsapp: whatsappClienteLimpo,
-          tipoImpressao,
-          quantidadePaginas,
-        }),
+        body: formData,
       })
 
-      const pagamentoData = await pagamento.json()
+      const pedidoData = await resposta.json()
 
-      if (!pagamento.ok) {
-        setMensagem(pagamentoData.error || 'Erro ao gerar pagamento.')
+      if (!resposta.ok) {
+        setMensagem(pedidoData.error || 'Erro ao enviar pedido.')
         return
       }
 
-      if (!pagamentoData.invoiceUrl || typeof pagamentoData.value !== 'number') {
+      if (!pedidoData.invoiceUrl || typeof pedidoData.value !== 'number') {
         setMensagem('Resposta de pagamento invalida. Tente novamente.')
         return
       }
 
-      const { error } = await supabase.from('pedidos_impressao').insert([
-        {
-          nome_arquivo: file.name,
-          url_arquivo: data.publicUrl,
-          status: 'aguardando_pagamento',
-          nome_cliente: nomeClienteLimpo,
-          whatsapp_cliente: whatsappClienteLimpo,
-          email_cliente: emailClienteLimpo,
-          tipo_impressao: tipoImpressao,
-          quantidade_paginas: quantidadePaginas,
-          valor: pagamentoData.value,
-          payment_link: pagamentoData.invoiceUrl,
-        },
-      ])
-
-      if (error) {
-        setMensagem(error.message)
-        return
-      }
-
-      setMensagem(`Pagamento gerado com sucesso: ${pagamentoData.invoiceUrl}`)
+      setMensagem(`Pagamento gerado com sucesso: ${pedidoData.invoiceUrl}`)
     } catch {
       setMensagem('Nao foi possivel concluir o pedido. Tente novamente.')
     } finally {
