@@ -457,6 +457,41 @@ h1 {
   justify-content: center;
 }
 
+.preview-actions {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.preview-actions span {
+  color: var(--muted);
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.preview-open-link {
+  align-items: center;
+  background: var(--navy);
+  border-radius: 8px;
+  color: #fff;
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-size: 13px;
+  font-weight: 800;
+  justify-content: center;
+  min-height: 38px;
+  padding: 9px 12px;
+  text-decoration: none;
+}
+
+.preview-open-link:hover {
+  background: var(--accent-strong);
+}
+
 .empty-preview span {
   border: 1px solid #d8cfc2;
   border-radius: 8px;
@@ -512,5 +547,22 @@ h1 {
   .pdf-preview,
   .empty-preview {
     height: 280px;
+  }
+
+  .preview-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .preview-actions span {
+    white-space: normal;
+  }
+
+  .preview-open-link {
+    width: 100%;
+  }
+
+  .pdf-preview {
+    display: none;
   }
 }

@@ -391,11 +391,24 @@ export default function HomePage() {
             </div>
 
             {previewUrl ? (
-              <iframe
-                src={previewUrl}
-                title="Pre-visualizacao do PDF"
-                className="pdf-preview"
-              />
+              <>
+                <div className="preview-actions">
+                  <span>{file?.name}</span>
+                  <a
+                    className="preview-open-link"
+                    href={previewUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Abrir previa do PDF
+                  </a>
+                </div>
+                <iframe
+                  src={previewUrl}
+                  title="Pre-visualizacao do PDF"
+                  className="pdf-preview"
+                />
+              </>
             ) : (
               <div className="empty-preview">
                 <span>PDF</span>
