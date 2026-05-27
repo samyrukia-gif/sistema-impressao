@@ -1,12 +1,17 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import Image from 'next/image'
-import { supabase } from './lib/supabase'
+import { isSupabaseConfigured, supabase } from './lib/supabase'
+
+const MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024
+const MAX_PAGES = 500
 
 export default function HomePage() {
   const [file, setFile] = useState<File | null>(null)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [mensagem, setMensagem] = useState('')
+  const [enviando, setEnviando] = useState(false)
 
   const [nomeCliente, setNomeCliente] = useState('')
   const [whatsappCliente, setWhatsappCliente] = useState('')
@@ -18,14 +23,57 @@ export default function HomePage() {
   const preco = tipoImpressao === 'pb' ? 2.5 : 3.5
   const valorTotal = preco * quantidadePaginas
 
-  const previewUrl = useMemo(() => {
-    if (!file) return null
-    return URL.createObjectURL(file)
+  useEffect(() => {
+    if (!file) {
+      setPreviewUrl(null)
+      return
+    }
+
+    const objectUrl = URL.createObjectURL(file)
+    setPreviewUrl(objectUrl)
+
+    return () => URL.revokeObjectURL(objectUrl)
   }, [file])
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const selectedFile = e.target.files?.[0]
-    if (selectedFile) setFile(selectedFile)
+    setMensagem('')
+
+    if (!selectedFile) {
+      setFile(null)
+      return
+    }
+
+    const isPdf =
+      selectedFile.type === 'application/pdf' ||
+      selectedFile.name.toLowerCase().endsWith('.pdf')
+
+    if (!isPdf) {
+      setFile(null)
+      e.target.value = ''
+      setMensagem('Selecione um arquivo PDF valido.')
+      return
+    }
+
+    if (selectedFile.size > MAX_FILE_SIZE_BYTES) {
+      setFile(null)
+      e.target.value = ''
+      setMensagem('O PDF deve ter no maximo 20 MB.')
+      return
+    }
+
+    setFile(selectedFile)
+  }
+
+  function handlePageCountChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const pageCount = Number(e.target.value)
+
+    if (!Number.isInteger(pageCount)) {
+      setQuantidadePaginas(1)
+      return
+    }
+
+    setQuantidadePaginas(Math.min(Math.max(pageCount, 1), MAX_PAGES))
   }
 
   function limparNomeArquivo(nome: string) {
@@ -35,65 +83,132 @@ export default function HomePage() {
       .replace(/[^a-zA-Z0-9.]/g, '_')
   }
 
+  function getStorageErrorMessage(message: string) {
+    if (/failed to fetch|network|fetch/i.test(message)) {
+      return 'Nao foi possivel enviar o PDF. Verifique as variaveis do Supabase na Vercel e as regras/CORS do bucket arquivos.'
+    }
+
+    if (/bucket|not found/i.test(message)) {
+      return 'Bucket de arquivos nao encontrado no Supabase.'
+    }
+
+    if (/row-level security|permission|unauthorized|forbidden/i.test(message)) {
+      return 'O Supabase bloqueou o envio. Revise as politicas de upload do bucket arquivos.'
+    }
+
+    return message || 'Nao foi possivel enviar o PDF.'
+  }
+
   async function enviarArquivo() {
-    if (!file || !nomeCliente || !whatsappCliente || !emailCliente) {
+    if (enviando) return
+
+    const nomeClienteLimpo = nomeCliente.trim()
+    const whatsappClienteLimpo = whatsappCliente.trim()
+    const emailClienteLimpo = emailCliente.trim()
+
+    if (!file || !nomeClienteLimpo || !whatsappClienteLimpo || !emailClienteLimpo) {
       setMensagem('Preencha todos os campos e selecione um PDF.')
       return
     }
 
+    if (
+      file.size > MAX_FILE_SIZE_BYTES ||
+      !(
+        file.type === 'application/pdf' ||
+        file.name.toLowerCase().endsWith('.pdf')
+      )
+    ) {
+      setMensagem('Selecione um PDF valido de ate 20 MB.')
+      return
+    }
+
+    if (
+      !Number.isInteger(quantidadePaginas) ||
+      quantidadePaginas < 1 ||
+      quantidadePaginas > MAX_PAGES
+    ) {
+      setMensagem(`Informe entre 1 e ${MAX_PAGES} paginas.`)
+      return
+    }
+
+    setEnviando(true)
+    setMensagem('')
+
     const nomeLimpo = limparNomeArquivo(file.name)
     const fileName = `${Date.now()}-${nomeLimpo}`
 
-    const { error: uploadError } = await supabase.storage
-      .from('arquivos')
-      .upload(fileName, file)
+    try {
+      if (!isSupabaseConfigured || !supabase) {
+        setMensagem(
+          'Supabase nao configurado. Configure NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_ANON_KEY na Vercel.'
+        )
+        return
+      }
 
-    if (uploadError) {
-      setMensagem(uploadError.message)
-      return
+      const { error: uploadError } = await supabase.storage
+        .from('arquivos')
+        .upload(fileName, file, {
+          contentType: 'application/pdf',
+          upsert: false,
+        })
+
+      if (uploadError) {
+        setMensagem(getStorageErrorMessage(uploadError.message))
+        return
+      }
+
+      const { data } = supabase.storage.from('arquivos').getPublicUrl(fileName)
+
+      const pagamento = await fetch('/api/criar-pagamento', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nome: nomeClienteLimpo,
+          email: emailClienteLimpo,
+          whatsapp: whatsappClienteLimpo,
+          tipoImpressao,
+          quantidadePaginas,
+        }),
+      })
+
+      const pagamentoData = await pagamento.json()
+
+      if (!pagamento.ok) {
+        setMensagem(pagamentoData.error || 'Erro ao gerar pagamento.')
+        return
+      }
+
+      if (!pagamentoData.invoiceUrl || typeof pagamentoData.value !== 'number') {
+        setMensagem('Resposta de pagamento invalida. Tente novamente.')
+        return
+      }
+
+      const { error } = await supabase.from('pedidos_impressao').insert([
+        {
+          nome_arquivo: file.name,
+          url_arquivo: data.publicUrl,
+          status: 'aguardando_pagamento',
+          nome_cliente: nomeClienteLimpo,
+          whatsapp_cliente: whatsappClienteLimpo,
+          email_cliente: emailClienteLimpo,
+          tipo_impressao: tipoImpressao,
+          quantidade_paginas: quantidadePaginas,
+          valor: pagamentoData.value,
+          payment_link: pagamentoData.invoiceUrl,
+        },
+      ])
+
+      if (error) {
+        setMensagem(error.message)
+        return
+      }
+
+      setMensagem(`Pagamento gerado com sucesso: ${pagamentoData.invoiceUrl}`)
+    } catch {
+      setMensagem('Nao foi possivel concluir o pedido. Tente novamente.')
+    } finally {
+      setEnviando(false)
     }
-
-    const { data } = supabase.storage.from('arquivos').getPublicUrl(fileName)
-
-    const pagamento = await fetch('/api/criar-pagamento', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        nome: nomeCliente,
-        email: emailCliente,
-        whatsapp: whatsappCliente,
-        valor: valorTotal,
-      }),
-    })
-
-    const pagamentoData = await pagamento.json()
-
-    if (!pagamento.ok) {
-      setMensagem(pagamentoData.error || 'Erro ao gerar pagamento')
-      return
-    }
-
-    const { error } = await supabase.from('pedidos_impressao').insert([
-      {
-        nome_arquivo: file.name,
-        url_arquivo: data.publicUrl,
-        status: 'aguardando_pagamento',
-        nome_cliente: nomeCliente,
-        whatsapp_cliente: whatsappCliente,
-        email_cliente: emailCliente,
-        tipo_impressao: tipoImpressao,
-        quantidade_paginas: quantidadePaginas,
-        valor: valorTotal,
-        payment_link: pagamentoData.invoiceUrl,
-      },
-    ])
-
-    if (error) {
-      setMensagem(error.message)
-      return
-    }
-
-    setMensagem(`Pagamento gerado com sucesso: ${pagamentoData.invoiceUrl}`)
   }
 
   return (
@@ -131,6 +246,9 @@ export default function HomePage() {
                 value={nomeCliente}
                 onChange={(e) => setNomeCliente(e.target.value)}
                 placeholder="Digite seu nome completo"
+                autoComplete="name"
+                maxLength={120}
+                required
                 style={styles.input}
               />
             </div>
@@ -138,9 +256,13 @@ export default function HomePage() {
             <div>
               <label style={styles.label}>WhatsApp</label>
               <input
+                type="tel"
                 value={whatsappCliente}
                 onChange={(e) => setWhatsappCliente(e.target.value)}
                 placeholder="(21) 99999-9999"
+                autoComplete="tel"
+                maxLength={30}
+                required
                 style={styles.input}
               />
             </div>
@@ -148,9 +270,13 @@ export default function HomePage() {
             <div>
               <label style={styles.label}>E-mail</label>
               <input
+                type="email"
                 value={emailCliente}
                 onChange={(e) => setEmailCliente(e.target.value)}
                 placeholder="voce@email.com"
+                autoComplete="email"
+                maxLength={254}
+                required
                 style={styles.input}
               />
             </div>
@@ -174,8 +300,9 @@ export default function HomePage() {
               <input
                 type="number"
                 min="1"
+                max={MAX_PAGES}
                 value={quantidadePaginas}
-                onChange={(e) => setQuantidadePaginas(Number(e.target.value) || 1)}
+                onChange={handlePageCountChange}
                 style={styles.input}
               />
             </div>
@@ -187,6 +314,7 @@ export default function HomePage() {
                   type="file"
                   accept="application/pdf"
                   onChange={handleFileChange}
+                  disabled={enviando}
                   style={styles.fileInput}
                 />
                 <p style={styles.uploadText}>
@@ -198,8 +326,15 @@ export default function HomePage() {
             </div>
           </div>
 
-          <button onClick={enviarArquivo} style={styles.button}>
-            Gerar pagamento e enviar pedido
+          <button
+            onClick={enviarArquivo}
+            disabled={enviando}
+            style={{
+              ...styles.button,
+              ...(enviando ? styles.buttonDisabled : {}),
+            }}
+          >
+            {enviando ? 'Enviando pedido...' : 'Gerar pagamento e enviar pedido'}
           </button>
 
           {mensagem && (
@@ -433,6 +568,11 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 800,
     cursor: 'pointer',
     boxShadow: '0 16px 34px rgba(255, 138, 0, 0.28)',
+  },
+  buttonDisabled: {
+    opacity: 0.68,
+    cursor: 'not-allowed',
+    boxShadow: 'none',
   },
   messageBox: {
     marginTop: 18,
